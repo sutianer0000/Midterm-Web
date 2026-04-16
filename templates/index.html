@@ -921,20 +921,13 @@ header {
         <button class="view-btn active" id="btnGridView" onclick="setView('grid')" title="Card view">
           ⊞ Cards
         </button>
-        <button class="view-btn" id="btnTableView" onclick="setView('table')" title="Table view">
-          ☰ Bảng
-        </button>
+              <button class="export-btn export-btn-primary" onclick="exportAll()">⬇ Xuất CSV (tất cả)</button>
+
       </div>
     </div>
 
-    <!-- Export bar (shows in table view) -->
-    <div class="export-bar" id="exportBar">
-      <span class="export-count" id="exportCount"><strong>0</strong> hàng được chọn</span>
-      <button class="export-btn export-btn-primary" onclick="exportSelected()">⬇ Xuất CSV (đã chọn)</button>
-      <button class="export-btn export-btn-primary" onclick="exportAll()">⬇ Xuất CSV (tất cả)</button>
-      <button class="export-btn export-btn-ghost" onclick="selectAll()">Chọn tất cả</button>
-      <button class="export-btn export-btn-ghost" onclick="clearSelection()">Bỏ chọn</button>
-    </div>
+
+
 
     <!-- AG Grid table view -->
     <div class="ag-wrap" id="agWrap">
@@ -1349,6 +1342,7 @@ let currentView = 'grid';
 let agGrid = null;
 let agAllBooks = [];   // full dataset for table view (unpaged)
 
+/* disabled function
 function setView(view) {
   currentView = view;
   document.getElementById('btnGridView').classList.toggle('active', view === 'grid');
@@ -1362,7 +1356,14 @@ function setView(view) {
   }
 }
 
-async function loadTableData() {
+
+function exportSelected() {
+  if (!agGrid) return;
+  const rows = agGrid.getSelectedRows();
+  if (rows.length === 0) { showToast('Chưa chọn hàng nào!'); return; }
+  downloadCSV(rows, `cachep_selected_${Date.now()}.csv`);
+
+  async function loadTableData() {
   const params = new URLSearchParams({
     page: 1, per_page: 9999,
     q:             state.q,
@@ -1455,16 +1456,37 @@ function _initAgGrid(books) {
   });
 }
 
-function exportSelected() {
-  if (!agGrid) return;
-  const rows = agGrid.getSelectedRows();
-  if (rows.length === 0) { showToast('Chưa chọn hàng nào!'); return; }
-  downloadCSV(rows, `cachep_selected_${Date.now()}.csv`);
-}
+}*/
 
-function exportAll() {
-  if (!agAllBooks.length) { showToast('Không có dữ liệu!'); return; }
-  downloadCSV(agAllBooks, `cachep_all_${Date.now()}.csv`);
+
+async function exportAll() {
+  try {
+    // Fetch ALL books with current filters (no pagination limit)
+    const params = new URLSearchParams({
+      page: 1,
+      per_page: 9999, // get everything
+      q: state.q,
+      category: state.category,
+      price_min: state.priceMin,
+      price_max: state.priceMax,
+      discount_only: state.discountOnly ? '1' : '',
+      sort: state.sort,
+    });
+
+    const res = await fetch('/api/books?' + params);
+    const data = await res.json();
+
+    if (!data.books || data.books.length === 0) {
+      showToast('Không có dữ liệu để xuất!');
+      return;
+    }
+
+    downloadCSV(data.books, `cachep_all_${Date.now()}.csv`);
+
+  } catch (e) {
+    console.error(e);
+    showToast('Lỗi khi xuất CSV!');
+  }
 }
 
 function downloadCSV(rows, filename) {
