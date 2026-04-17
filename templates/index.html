@@ -921,13 +921,20 @@ header {
         <button class="view-btn active" id="btnGridView" onclick="setView('grid')" title="Card view">
           ⊞ Cards
         </button>
-              <button class="export-btn export-btn-primary" onclick="exportAll()">⬇ Xuất CSV (tất cả)</button>
-
+        <button class="view-btn" id="btnTableView" onclick="setView('table')" title="Table view">
+          ☰ Bảng
+        </button>
       </div>
     </div>
 
-
-
+    <!-- Export bar (shows in table view) -->
+    <div class="export-bar" id="exportBar">
+      <span class="export-count" id="exportCount"><strong>0</strong> hàng được chọn</span>
+      <button class="export-btn export-btn-primary" onclick="exportSelected()">⬇ Xuất CSV (đã chọn)</button>
+      <button class="export-btn export-btn-primary" onclick="exportAll()">⬇ Xuất CSV (tất cả)</button>
+      <button class="export-btn export-btn-ghost" onclick="selectAll()">Chọn tất cả</button>
+      <button class="export-btn export-btn-ghost" onclick="clearSelection()">Bỏ chọn</button>
+    </div>
 
     <!-- AG Grid table view -->
     <div class="ag-wrap" id="agWrap">
@@ -1339,10 +1346,9 @@ function startPolling() {
 
 // ─── View Toggle ───
 let currentView = 'grid';
-let agGrid = null;
+let gridApi = null;
 let agAllBooks = [];   // full dataset for table view (unpaged)
 
-/* disabled function
 function setView(view) {
   currentView = view;
   document.getElementById('btnGridView').classList.toggle('active', view === 'grid');
@@ -1356,14 +1362,7 @@ function setView(view) {
   }
 }
 
-
-function exportSelected() {
-  if (!agGrid) return;
-  const rows = agGrid.getSelectedRows();
-  if (rows.length === 0) { showToast('Chưa chọn hàng nào!'); return; }
-  downloadCSV(rows, `cachep_selected_${Date.now()}.csv`);
-
-  async function loadTableData() {
+async function loadTableData() {
   const params = new URLSearchParams({
     page: 1, per_page: 9999,
     q:             state.q,
@@ -1377,9 +1376,9 @@ function exportSelected() {
     const res  = await fetch('/api/books?' + params);
     const data = await res.json();
     agAllBooks = data.books;
-    if (agGrid) {
+    if (gridApi) {
       // Grid already exists — just swap the row data, keep columns/state
-      agGrid.setGridOption('rowData', agAllBooks);
+      gridApi.setGridOption('rowData', agAllBooks);
     } else {
       // First time opening table view — create the grid
       _initAgGrid(agAllBooks);
@@ -1436,7 +1435,7 @@ function _initAgGrid(books) {
             style="color:var(--gold);font-size:11px">Xem →</a>` },
   ];
 
-  agGrid = agGridCommunity.createGrid(container, {
+  gridApi = agGrid.createGrid(container, {
     columnDefs: colDefs,
     rowData:    books,
     rowSelection: 'multiple',
@@ -1449,44 +1448,23 @@ function _initAgGrid(books) {
     pagination:         true,
     paginationPageSize: 50,
     onSelectionChanged: () => {
-      const n = agGrid ? agGrid.getSelectedRows().length : 0;
+      const n = gridApi ? gridApi.getSelectedRows().length : 0;
       document.getElementById('exportCount').innerHTML =
         `<strong>${n.toLocaleString('vi')}</strong> hàng được chọn`;
     },
   });
 }
 
-}*/
+function exportSelected() {
+  if (!gridApi) return;
+  const rows = gridApi.getSelectedRows();
+  if (rows.length === 0) { showToast('Chưa chọn hàng nào!'); return; }
+  downloadCSV(rows, `cachep_selected_${Date.now()}.csv`);
+}
 
-
-async function exportAll() {
-  try {
-    // Fetch ALL books with current filters (no pagination limit)
-    const params = new URLSearchParams({
-      page: 1,
-      per_page: 9999, // get everything
-      q: state.q,
-      category: state.category,
-      price_min: state.priceMin,
-      price_max: state.priceMax,
-      discount_only: state.discountOnly ? '1' : '',
-      sort: state.sort,
-    });
-
-    const res = await fetch('/api/books?' + params);
-    const data = await res.json();
-
-    if (!data.books || data.books.length === 0) {
-      showToast('Không có dữ liệu để xuất!');
-      return;
-    }
-
-    downloadCSV(data.books, `cachep_all_${Date.now()}.csv`);
-
-  } catch (e) {
-    console.error(e);
-    showToast('Lỗi khi xuất CSV!');
-  }
+function exportAll() {
+  if (!agAllBooks.length) { showToast('Không có dữ liệu!'); return; }
+  downloadCSV(agAllBooks, `cachep_all_${Date.now()}.csv`);
 }
 
 function downloadCSV(rows, filename) {
@@ -1511,8 +1489,8 @@ function downloadCSV(rows, filename) {
   showToast(`✓ Đã xuất ${rows.length.toLocaleString('vi')} dòng`);
 }
 
-function selectAll()     { agGrid?.selectAll(); }
-function clearSelection(){ agGrid?.deselectAll(); }
+function selectAll()     { gridApi?.selectAll(); }
+function clearSelection(){ gridApi?.deselectAll(); }
 
 // ─── Crawl Dialog ───
 let cdMode = 'count';
