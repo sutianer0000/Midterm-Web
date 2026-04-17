@@ -1,6 +1,6 @@
-# 📚 Cá Chép Bookstore Crawler
-### Web Programming & Applications (503073) — Topic 7: Web Crawling
 
+### Web Programming & Applications (503073) — Topic 7: Web Crawling
+(For better setup instructions, read the README.txt that is included in the outside of this demo's folder)
 ---
 
 ## What it does
